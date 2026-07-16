@@ -1,184 +1,223 @@
-import React, { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Play, BookOpen, Heart, Pill, Users } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Search, Play, BookOpen, Heart, Pill, Users, Plus, Loader2, FileText, Video } from "lucide-react";
+import { trpc } from "@/lib/trpc";
+import { useState } from "react";
+import { toast } from "sonner";
 
 const categories = [
-  { icon: BookOpen, label: "All Topics", count: 48 },
-  { icon: Heart, label: "IVF Basics", count: 12 },
-  { icon: Users, label: "Ovulation & Fertility", count: 10 },
-  { icon: Pill, label: "Medications", count: 8 },
-];
-
-const videos = [
-  {
-    title: "IVF Explained: Step by Step",
-    description: "A complete overview of the IVF process from start to finish.",
-    duration: "6:45",
-    views: "12.5K",
-    image: "https://images.unsplash.com/photo-1576091160550-112173f7f869?w=400&h=300&fit=crop",
-  },
-  {
-    title: "How Ovarian Stimulation Works",
-    description: "Understand how medications help stimulate ovulation.",
-    duration: "4:12",
-    views: "8.3K",
-    image: "https://images.unsplash.com/photo-1576091160550-112173f7f869?w=400&h=300&fit=crop",
-  },
-  {
-    title: "Embryo Transfer: What to Expect",
-    description: "A quick guide to the embryo transfer procedure and aftercare.",
-    duration: "5:38",
-    views: "15.2K",
-    image: "https://images.unsplash.com/photo-1576091160550-112173f7f869?w=400&h=300&fit=crop",
-  },
-  {
-    title: "Emotional Wellness During IVF",
-    description: "Tips to manage stress and stay positive through your fertility journey.",
-    duration: "3:59",
-    views: "9.8K",
-    image: "https://images.unsplash.com/photo-1576091160550-112173f7f869?w=400&h=300&fit=crop",
-  },
-];
-
-const articles = [
-  {
-    title: "Best Time to Conceive: Facts and Myths",
-    description: "Discover the science behind ovulation and fertility windows.",
-    readTime: "5 min read",
-    date: "May 10, 2024",
-  },
-  {
-    title: "Nutrition for Fertility: What to Eat and Avoid",
-    description: "Learn how the right nutrition can improve fertility and support a healthy pregnancy.",
-    readTime: "6 min read",
-    date: "May 6, 2024",
-  },
-  {
-    title: "Stress and Fertility: The Hidden Connection",
-    description: "How stress can impact your fertility and effective ways to manage it.",
-    readTime: "4 min read",
-    date: "May 2, 2024",
-  },
+  { icon: BookOpen, label: "All Topics", value: "" },
+  { icon: Heart, label: "IVF Basics", value: "ivf" },
+  { icon: Users, label: "Ovulation & Fertility", value: "fertility" },
+  { icon: Pill, label: "Medications", value: "medications" },
 ];
 
 export default function KnowledgeHub() {
-  const [selectedCategory, setSelectedCategory] = useState("All Topics");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [newContent, setNewContent] = useState({
+    title: "",
+    contentType: "article" as "article" | "video" | "guide" | "faq",
+    category: "",
+    summary: "",
+    content: "",
+    thumbnailUrl: "",
+    videoUrl: "",
+    accessLevel: "free" as "free" | "premium" | "subscriber",
+  });
+
+  const utils = trpc.useUtils();
+  const { data: contentList, isLoading } = trpc.knowledge.list.useQuery({ published: true });
+
+  const createMutation = trpc.knowledge.create.useMutation({
+    onSuccess: () => {
+      utils.knowledge.list.invalidate();
+      setIsOpen(false);
+      setNewContent({ title: "", contentType: "article", category: "", summary: "", content: "", thumbnailUrl: "", videoUrl: "", accessLevel: "free" });
+      toast.success("Content published successfully");
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const handleCreate = () => {
+    if (!newContent.title || !newContent.category) {
+      toast.error("Please fill title and category");
+      return;
+    }
+    const slug = newContent.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    createMutation.mutate({
+      title: newContent.title,
+      slug,
+      contentType: newContent.contentType,
+      category: newContent.category || undefined,
+      summary: newContent.summary || undefined,
+      content: newContent.content || undefined,
+      videoUrl: newContent.videoUrl || undefined,
+      thumbnailUrl: newContent.thumbnailUrl || undefined,
+      isPublished: true,
+    });
+  };
+
+  const filteredContent = contentList?.filter((item) =>
+    searchTerm ? item.title.toLowerCase().includes(searchTerm.toLowerCase()) : true
+  );
 
   return (
-    <div className="p-8 space-y-8">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Knowledge Hub</h1>
-        <p className="text-muted-foreground mt-1">Expert insights and trusted resources on IVF and fertility.</p>
-      </div>
-
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-3 w-5 h-5 text-muted-foreground" />
-        <Input
-          placeholder="Search for videos, articles, FAQs and more..."
-          className="pl-10"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-      </div>
-
-      {/* Categories */}
-      <div className="flex gap-3 overflow-x-auto pb-2">
-        {categories.map((cat) => {
-          const Icon = cat.icon;
-          const isActive = selectedCategory === cat.label;
-          return (
-            <button
-              key={cat.label}
-              onClick={() => setSelectedCategory(cat.label)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap transition-colors ${
-                isActive
-                  ? "bg-purple-600 text-white"
-                  : "bg-muted text-foreground hover:bg-muted/80"
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              {cat.label}
-              <span className="text-xs ml-1">({cat.count})</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Featured Videos */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold">Featured Videos</h2>
-          <Button variant="outline">View all videos →</Button>
+    <div className="p-6 md:p-8 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">Knowledge Hub</h1>
+          <p className="text-sm text-muted-foreground mt-1">Educational resources for patients and practitioners</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {videos.map((video, idx) => (
-            <Card key={idx} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
-              <div className="relative h-32 bg-muted overflow-hidden group">
-                <img src={video.image} alt={video.title} className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-black/40 group-hover:bg-black/60 transition-colors flex items-center justify-center">
-                  <Play className="w-8 h-8 text-white" />
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-primary hover:bg-primary/90">
+              <Plus className="w-4 h-4 mr-2" /> Add Content
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Publish New Content</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div>
+                <Label>Title *</Label>
+                <Input value={newContent.title} onChange={(e) => setNewContent({ ...newContent, title: e.target.value })} placeholder="Content title..." />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Type *</Label>
+                  <Select value={newContent.contentType} onValueChange={(v) => setNewContent({ ...newContent, contentType: v as any })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="article">Article</SelectItem>
+                      <SelectItem value="video">Video</SelectItem>
+                      <SelectItem value="guide">Guide</SelectItem>
+                      <SelectItem value="faq">FAQ</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <span className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                  {video.duration}
+                <div>
+                  <Label>Access Level</Label>
+                  <Select value={newContent.accessLevel} onValueChange={(v) => setNewContent({ ...newContent, accessLevel: v as any })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="free">Free</SelectItem>
+                      <SelectItem value="premium">Premium</SelectItem>
+                      <SelectItem value="subscriber">Subscriber</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <Label>Category *</Label>
+                <Input value={newContent.category} onChange={(e) => setNewContent({ ...newContent, category: e.target.value })} placeholder="e.g., ivf, fertility, medications" />
+              </div>
+              <div>
+                <Label>Summary</Label>
+                <Input value={newContent.summary} onChange={(e) => setNewContent({ ...newContent, summary: e.target.value })} placeholder="Brief summary..." />
+              </div>
+              <div>
+                <Label>Content</Label>
+                <textarea
+                  className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={newContent.content}
+                  onChange={(e) => setNewContent({ ...newContent, content: e.target.value })}
+                  placeholder="Full content body..."
+                />
+              </div>
+              {newContent.contentType === "video" && (
+                <div>
+                  <Label>Video URL</Label>
+                  <Input value={newContent.videoUrl} onChange={(e) => setNewContent({ ...newContent, videoUrl: e.target.value })} placeholder="https://..." />
+                </div>
+              )}
+              <Button onClick={handleCreate} disabled={createMutation.isPending}>
+                {createMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <BookOpen className="w-4 h-4 mr-2" />}
+                Publish Content
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Search and Categories */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            className="pl-10"
+            placeholder="Search articles, videos, guides..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          {categories.map((cat) => (
+            <Button
+              key={cat.label}
+              variant={selectedCategory === cat.value ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedCategory(cat.value)}
+            >
+              <cat.icon className="w-4 h-4 mr-1" />
+              {cat.label}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      {/* Content Grid */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin text-primary" />
+          <span className="ml-2 text-muted-foreground">Loading content...</span>
+        </div>
+      ) : !filteredContent || filteredContent.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <BookOpen className="w-16 h-16 text-muted-foreground mb-4" />
+          <h3 className="text-lg font-medium">No content available</h3>
+          <p className="text-sm text-muted-foreground mt-1">Click "Add Content" to publish educational resources</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {filteredContent.map((item) => (
+            <Card key={item.id} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group">
+              <div className="h-40 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center relative">
+                {item.contentType === "video" ? (
+                  <div className="w-14 h-14 rounded-full bg-primary/90 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Play className="w-6 h-6 text-white ml-1" />
+                  </div>
+                ) : (
+                  <FileText className="w-12 h-12 text-primary/60" />
+                )}
+                <span className="absolute top-3 right-3 text-xs font-medium px-2 py-1 rounded-full bg-white/80 text-primary capitalize">
+                  {item.isFeatured ? "Featured" : "Free"}
                 </span>
               </div>
-              <CardContent className="pt-4">
-                <h3 className="font-semibold text-sm line-clamp-2">{video.title}</h3>
-                <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{video.description}</p>
-                <p className="text-xs text-muted-foreground mt-3">{video.views} views</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-
-      {/* Latest Articles */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold">Latest Articles</h2>
-          <Button variant="outline">View all articles →</Button>
-        </div>
-        <div className="space-y-4">
-          {articles.map((article, idx) => (
-            <Card key={idx} className="hover:shadow-md transition-shadow cursor-pointer">
-              <CardContent className="pt-6">
-                <h3 className="font-semibold text-lg">{article.title}</h3>
-                <p className="text-muted-foreground mt-2">{article.description}</p>
-                <div className="flex items-center justify-between mt-4">
-                  <span className="text-xs text-muted-foreground">{article.readTime}</span>
-                  <span className="text-xs text-muted-foreground">{article.date}</span>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  {item.contentType === "video" ? <Video className="w-3 h-3 text-primary" /> : <FileText className="w-3 h-3 text-primary" />}
+                  <span className="text-xs text-muted-foreground capitalize">{item.contentType} • {item.category}</span>
+                </div>
+                <h3 className="font-semibold text-sm line-clamp-2">{item.title}</h3>
+                {item.summary && <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{item.summary}</p>}
+                <div className="flex items-center justify-between mt-3">
+                  <span className="text-xs text-muted-foreground">
+                    {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : ""}
+                  </span>
+                  <span className="text-xs text-muted-foreground">{item.viewCount || 0} views</span>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
-      </div>
-
-      {/* Popular FAQs */}
-      <div>
-        <h2 className="text-2xl font-bold mb-4">Popular FAQs</h2>
-        <div className="space-y-3">
-          {[
-            "What is IVF and how does it work?",
-            "What are the chances of success with IVF?",
-            "How much time does an IVF cycle take?",
-            "Is IVF treatment painful?",
-            "What should I do after an embryo transfer?",
-          ].map((faq, idx) => (
-            <Card key={idx} className="cursor-pointer hover:shadow-md transition-shadow">
-              <CardContent className="py-4 flex items-center justify-between">
-                <p className="font-medium">{faq}</p>
-                <span className="text-muted-foreground">→</span>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
+      )}
     </div>
   );
 }

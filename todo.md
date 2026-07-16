@@ -1,0 +1,34 @@
+# FRHMS Full-Stack Upgrade TODO
+
+- [x] Database schema: patients table with full fertility profile
+- [x] Database schema: appointments table
+- [x] Database schema: clinical_assessments table
+- [x] Database schema: ivf_cycles table
+- [x] Database schema: embryology_records table
+- [x] Database schema: lab_results table
+- [x] Database schema: medications table
+- [x] Database schema: billing_transactions table
+- [x] Database schema: knowledge_hub_content table
+- [x] Database schema: qna_sessions table
+- [x] Backend API: Patient CRUD procedures
+- [x] Backend API: Appointments CRUD procedures
+- [x] Backend API: Clinical assessments procedures
+- [x] Backend API: IVF cycles and monitoring procedures
+- [x] Backend API: Embryology records procedures
+- [x] Backend API: Lab results procedures
+- [x] Backend API: Medications procedures
+- [x] Backend API: Billing and transactions procedures
+- [x] Backend API: Dashboard analytics procedures
+- [x] Frontend: Connect Dashboard to real API data
+- [x] Frontend: Connect Patients page to real API data
+- [x] Frontend: Connect Appointments page to real API data
+- [x] Frontend: Connect Clinical Care page to real API data
+- [x] Frontend: Connect Knowledge Hub page to real API data
+- [x] Frontend: Connect Ask Specialist page to real API data
+- [x] Frontend: Connect Laboratory page to real API data
+- [x] Write vitest tests for backend procedures
+- [x] Frontend: Connect Cycle Monitoring page to real API data
+- [x] Frontend: Connect Embryology page to real API data
+- [x] Frontend: Connect Billing page to real API data
+- [x] Frontend: Connect Medications page to real API data
+- [x] Refactor Laboratory page to use dynamic patient context instead of hardcoded patientId
